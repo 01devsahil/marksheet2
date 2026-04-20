@@ -175,7 +175,6 @@
             vertical-align: middle;
         }
 
-        /* Fixed Action Buttons UI */
         .action-buttons {
             display: flex;
             gap: 8px;
@@ -200,10 +199,10 @@
         
         .action-buttons button:active { transform: scale(0.95); }
 
-        .btn-edit-h { background: #f59e0b !important; } /* Orange */
-        .btn-print-h { background: #1e3a8a !important; } /* Dark Blue */
-        .btn-pdf-h { background: #0ea5e9 !important; } /* Sky Blue */
-        .btn-del-h { background: #dc2626 !important; } /* Red */
+        .btn-edit-h { background: #f59e0b !important; }
+        .btn-print-h { background: #1e3a8a !important; }
+        .btn-pdf-h { background: #0ea5e9 !important; }
+        .btn-del-h { background: #dc2626 !important; }
 
         /* --- Marksheet Preview (Strict A4 Fit) --- */
         #printable-marksheet {
@@ -273,7 +272,16 @@
         .subject-table-container { flex-grow: 1; }
         .subject-table-container td { height: 24px; font-size: 9.5pt; }
 
-        .remarks-table td { height: 32px; font-weight: 700; text-transform: uppercase; font-size: 10.5pt; text-align: center; opacity: 1 !important; }
+        /* Remarks Table Fix */
+        .remarks-table td { 
+            height: 32px; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            font-size: 10.5pt; 
+            text-align: center; 
+            opacity: 1 !important;
+            font-family: "Times New Roman", Times, serif;
+        }
         .remark-green { color: #15803d !important; }
         .remark-black { color: #000000 !important; }
         .remark-red { color: #c00000 !important; }
@@ -659,12 +667,6 @@
                 document.getElementById('out_promotion').innerText = `PASSED & PROMOTED TO : ${promotionClass}`;
             }
 
-            // Sync Remarks Display
-            ["rem_rec_1","rem_rec_2","rem_rec_3"].forEach(id => document.getElementById(id).closest('tr').style.display = "none");
-            if(['A1','A2','A','A+'].includes(finalGrade)) document.getElementById('rem_rec_1').closest('tr').style.display = "table-row";
-            else if(['B1','B2','B','B+'].includes(finalGrade)) document.getElementById('rem_rec_2').closest('tr').style.display = "table-row";
-            else document.getElementById('rem_rec_3').closest('tr').style.display = "table-row";
-
             document.getElementById('printable-marksheet').style.display = 'block';
             if(!silent) {
                 saveToHistory(data);
@@ -731,7 +733,7 @@
             const item = history.find(i => i.id === id);
             if(item) {
                 localStorage.setItem('marksheet_temp_current', JSON.stringify(item));
-                generate(true); // Silent generate to update the UI
+                generate(true); 
                 setTimeout(() => {
                     if(type === 'print') window.print();
                     else downloadPDF();
@@ -747,9 +749,25 @@
             const fileName = ((data.name || 'Student') + " " + formatClass(data.std) + ".pdf").replace(/[\\/:*?"<>|]/g,'');
 
             const opt = {
-                margin: 0, filename: fileName, image: { type: "jpeg", quality: 1 },
-                html2canvas: { scale: 4, dpi: 300, letterRendering: true, useCORS: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0 },
-                jsPDF: { unit: "mm", format: [297,210], orientation: "landscape", compress: false }
+                margin: 0,
+                filename: fileName,
+                image: { type: "jpeg", quality: 1 },
+                html2canvas: {
+                    scale: 4,
+                    dpi: 300,
+                    letterRendering: true,
+                    useCORS: true,
+                    allowTaint: true,
+                    backgroundColor: "#ffffff",
+                    scrollX: 0,
+                    scrollY: 0
+                },
+                jsPDF: {
+                    unit: "mm",
+                    format: [297,210],
+                    orientation: "landscape",
+                    compress: false
+                }
             };
             setTimeout(() => { html2pdf().set(opt).from(element).save(); }, 500);
         }
