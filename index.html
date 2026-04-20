@@ -3,14 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebNexify | A4 Landscape Marksheet Generator</title>
+    <title>WebNexify | Professional Marksheet Generator with History</title>
     <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <!-- PDF Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- ExcelJS & FileSaver for Styled Excel Exports -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         :root {
             --admin-bg: #f0f2f5;
@@ -23,6 +20,7 @@
             --border-black: #000000;
             --hobby-blue: #1d4ed8;
             --signature-blue: #1e3a8a;
+            --success: #166534;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -113,20 +111,75 @@
         }
 
         .btn {
-            padding: 12px 20px;
+            padding: 10px 18px;
             border: none;
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             transition: opacity 0.2s;
+            text-transform: uppercase;
         }
         .btn-gen { background: #0f172a; color: white; }
         .btn-print { background: #059669; color: white; }
         .btn-pdf { background: #2563eb; color: white; }
-        .btn-xls { background: #166534; color: white; }
         .btn-reset { background: #ef4444; color: white; }
+        .btn-edit { background: #f59e0b; color: white; padding: 5px 10px; }
+        .btn-del { background: #dc2626; color: white; padding: 5px 10px; }
         .btn:hover { opacity: 0.9; }
+
+        /* --- History Panel --- */
+        .history-wrapper {
+            max-width: 1100px;
+            margin: 30px auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            padding: 20px;
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #f1f5f9;
+            padding-bottom: 10px;
+        }
+
+        .search-box {
+            padding: 8px 15px;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            width: 250px;
+            font-size: 13px;
+        }
+
+        .history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .history-table th {
+            text-align: left;
+            padding: 12px;
+            background: #f8fafc;
+            color: #64748b;
+            font-weight: 700;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .history-table td {
+            padding: 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 5px;
+        }
 
         /* --- Marksheet Preview (Strict A4 Fit) --- */
         #printable-marksheet {
@@ -150,20 +203,9 @@
             print-color-adjust: exact;
         }
 
-        .outer-border {
-            border: 2px solid var(--border-black);
-            height: 100%;
-            padding: 3px;
-        }
+        .outer-border { border: 2px solid var(--border-black); height: 100%; padding: 3px; }
+        .inner-border { border: 1px solid var(--border-black); height: 100%; display: flex; flex-direction: column; }
 
-        .inner-border {
-            border: 1px solid var(--border-black);
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* Header Layout */
         .marksheet-header {
             display: grid;
             grid-template-columns: 150px 1fr 150px;
@@ -194,13 +236,7 @@
             text-transform: uppercase;
         }
 
-        /* Body Structure */
-        .main-content-grid {
-            display: grid;
-            grid-template-columns: 26% 40% 34%;
-            flex-grow: 1;
-        }
-
+        .main-content-grid { display: grid; grid-template-columns: 26% 40% 34%; flex-grow: 1; }
         .col { border-right: 1px solid var(--border-black); height: 100%; display: flex; flex-direction: column; }
         .col:last-child { border-right: none; }
 
@@ -209,22 +245,10 @@
         .bg-gray { background-color: #f2f2f2; font-weight: bold; }
         .text-left { text-align: left; padding-left: 10px; }
 
-        .address-box {
-            height: 75px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 5px;
-            text-align: center;
-            font-size: 8.5pt;
-            font-weight: bold;
-        }
-
-        /* Center Table Fix */
+        .address-box { height: 75px; display: flex; align-items: center; justify-content: center; padding: 5px; text-align: center; font-size: 8.5pt; font-weight: bold; }
         .subject-table-container { flex-grow: 1; }
         .subject-table-container td { height: 24px; font-size: 9.5pt; }
 
-        /* Right Column Specifics */
         .remarks-table td { height: 32px; font-weight: bold; text-transform: uppercase; font-size: 10.5pt; }
         .remark-green { color: #15803d !important; }
         .remark-black { color: #000000 !important; }
@@ -233,73 +257,18 @@
         .eng-reading-row { height: 75px !important; }
         .hobby-display-row { height: 55px !important; font-size: 12pt !important; }
 
-        .promotion-footer {
-            border-top: 1px solid var(--border-black);
-            padding: 8px 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: bold;
-        }
-
-        /* Bottom Section Compacted */
-        .reopen-footer {
-            width: 100%;
-            text-align: center;
-            font-weight: bold;
-            font-size: 14pt;
-            color: var(--reopen-text);
-            border-top: 1px solid var(--border-black);
-            padding: 6px 0;
-            background: #fff;
-            flex-shrink: 0;
-            text-transform: uppercase;
-        }
-
-        .signature-row {
-            width: 100%;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            border-top: 1px solid var(--border-black);
-            height: 75px;
-            flex-shrink: 0;
-        }
-
-        .signature-box {
-            border-right: 1px solid var(--border-black);
-            position: relative;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding-bottom: 8px;
-        }
-
+        .promotion-footer { border-top: 1px solid var(--border-black); padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; font-weight: bold; }
+        .reopen-footer { width: 100%; text-align: center; font-weight: bold; font-size: 14pt; color: var(--reopen-text); border-top: 1px solid var(--border-black); padding: 6px 0; background: #fff; flex-shrink: 0; text-transform: uppercase; }
+        .signature-row { width: 100%; display: grid; grid-template-columns: 1fr 1fr 1fr; border-top: 1px solid var(--border-black); height: 75px; flex-shrink: 0; }
+        .signature-box { border-right: 1px solid var(--border-black); position: relative; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
         .signature-box:last-child { border-right: none; }
+        .signature-label { color: var(--signature-blue); font-weight: bold; font-size: 10pt; text-align: center; width: 100%; text-transform: uppercase; }
 
-        .signature-label {
-            color: var(--signature-blue);
-            font-weight: bold;
-            font-size: 10pt;
-            text-align: center;
-            width: 100%;
-            text-transform: uppercase;
-        }
-
-        /* Print Settings */
         @media print {
             body { margin: 0; padding: 0; background: white; }
-            .admin-wrapper { display: none !important; }
-            #printable-marksheet {
-                display: block !important;
-                margin: 0 !important;
-                border: none !important;
-                width: 297mm;
-                height: 210mm;
-            }
-            @page {
-                size: A4 landscape;
-                margin: 0;
-            }
+            .admin-wrapper, .history-wrapper { display: none !important; }
+            #printable-marksheet { display: block !important; margin: 0 !important; border: none !important; width: 297mm; height: 210mm; }
+            @page { size: A4 landscape; margin: 0; }
         }
     </style>
 </head>
@@ -308,7 +277,7 @@
     <div class="admin-wrapper">
         <div class="admin-header">
             <h1 style="font-size: 20px; font-weight: 700;">WebNexify Marksheet Engine</h1>
-            <p style="font-size: 12px; opacity: 0.8; margin-top: 3px;">Production Multi-Curriculum v3.7</p>
+            <p style="font-size: 12px; opacity: 0.8; margin-top: 3px;">Production Multi-Curriculum v4.0</p>
         </div>
         
         <div class="admin-content">
@@ -389,9 +358,7 @@
                 </div>
                 <div class="field-group">
                     <label>Manual Final Grade</label>
-                    <select id="in_res_manual_grade" onchange="autoSave()">
-                        <!-- Options populated dynamically -->
-                    </select>
+                    <select id="in_res_manual_grade" onchange="autoSave()"></select>
                 </div>
                 <div class="field-group">
                     <label>Passed / Failed</label>
@@ -403,20 +370,11 @@
                 <div class="field-group">
                     <label>Promote To Class</label>
                     <select id="in_res_promote" onchange="autoSave()">
-                        <option value="NR">NR</option>
-                        <option value="JR">JR</option>
-                        <option value="SR">SR</option>
-                        <option value="1ST">1ST</option>
-                        <option value="2ND">2ND</option>
-                        <option value="3RD">3RD</option>
-                        <option value="4TH">4TH</option>
-                        <option value="5TH">5TH</option>
-                        <option value="6TH">6TH</option>
-                        <option value="7TH">7TH</option>
-                        <option value="8TH">8TH</option>
-                        <option value="9TH">9TH</option>
-                        <option value="10TH">10TH</option>
-                        <option value="COMPLETED">COMPLETED</option>
+                        <option value="NR">NR</option><option value="JR">JR</option><option value="SR">SR</option>
+                        <option value="1ST">1ST</option><option value="2ND">2ND</option><option value="3RD">3RD</option>
+                        <option value="4TH">4TH</option><option value="5TH">5TH</option><option value="6TH">6TH</option>
+                        <option value="7TH">7TH</option><option value="8TH">8TH</option><option value="9TH">9TH</option>
+                        <option value="10TH">10TH</option><option value="COMPLETED">COMPLETED</option>
                     </select>
                 </div>
             </div>
@@ -425,9 +383,30 @@
                 <button class="btn btn-gen" onclick="generate()">Preview Marksheet</button>
                 <button class="btn btn-print" onclick="window.print()">Print Report</button>
                 <button class="btn btn-pdf" onclick="downloadPDF()">Download PDF</button>
-                <button class="btn btn-xls" onclick="downloadExcel()">Download Excel</button>
                 <button class="btn btn-reset" onclick="resetAll()">Reset Form</button>
             </div>
+        </div>
+    </div>
+
+    <!-- History Panel -->
+    <div class="history-wrapper">
+        <div class="history-header">
+            <h2 style="font-size: 16px; color: var(--accent);">STUDENT HISTORY RECORDS</h2>
+            <input type="text" id="history-search" class="search-box" placeholder="Search by name or class..." oninput="renderHistory()">
+        </div>
+        <div style="overflow-x: auto;">
+            <table class="history-table">
+                <thead>
+                    <tr>
+                        <th>Student Name</th>
+                        <th>Class</th>
+                        <th>Roll No</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="history-list"></tbody>
+            </table>
         </div>
     </div>
 
@@ -435,25 +414,19 @@
     <div id="printable-marksheet">
         <div class="outer-border">
             <div class="inner-border">
-                
                 <div class="marksheet-header">
-                    <div class="logo-container">
-                        <img src="ambition.jpeg" alt="Ambition Logo" onerror="this.src='https://via.placeholder.com/120x100?text=LOGO'">
-                    </div>
+                    <div class="logo-container"><img src="ambition.jpeg" alt="Logo" onerror="this.src='https://via.placeholder.com/120x100?text=LOGO'"></div>
                     <div class="school-info">
                         <div class="trust-name">SITARAM EDUCATIONAL TRUST</div>
                         <div class="school-name">AMBITION PUBLIC SCHOOL</div>
                         <div class="address">BABA COMPOUND, VALAIPADA ROAD, SANTOSH BHUVAN, NSP(E)-401209</div>
-                        <div class="report-card-banner">
-                            FINAL EXAMINATION REPORT CARD FOR ACADEMIC YEAR 2025-26
-                        </div>
+                        <div class="report-card-banner">FINAL EXAMINATION REPORT CARD FOR ACADEMIC YEAR 2025-26</div>
                     </div>
                     <div class="empty-spacer"></div>
                 </div>
-
                 <div class="main-content-grid">
                     <div class="col">
-                        <table style="height: auto;">
+                        <table>
                             <tr><td class="bg-gray">NAME OF STUDENT</td></tr>
                             <tr><td style="font-weight: bold; font-size: 11pt; height: 32px;" id="out_name">-</td></tr>
                         </table>
@@ -475,7 +448,6 @@
                             </table>
                         </div>
                     </div>
-
                     <div class="col">
                         <div class="subject-table-container">
                             <table>
@@ -488,24 +460,19 @@
                             <div id="out_promotion" style="font-size: 10pt;">PASSED & PROMOTED TO : -</div>
                         </div>
                     </div>
-
                     <div class="col">
                         <table class="remarks-table">
                             <tr><td class="bg-gray">DESCRIPTIVE REMARKS</td></tr>
-                            <tr><td class="remark-green">REMARKABLE PROGRESS</td></tr>
-                            <tr><td class="remark-black">GOOD</td></tr>
-                            <tr><td class="remark-red">IMPROVEMENT NEEDED</td></tr>
+                            <tr><td class="remark-green" id="rem_rec_1">REMARKABLE PROGRESS</td></tr>
+                            <tr><td class="remark-black" id="rem_rec_2">GOOD</td></tr>
+                            <tr><td class="remark-black" id="rem_rec_3">IMPROVEMENT NEEDED</td></tr>
                             <tr><td class="eng-reading-row">ENGLISH READING / WRITING</td></tr>
                             <tr><td class="hobby-heading-row">INTEREST / HOBBIES</td></tr>
                             <tr><td id="out_hobbies" class="hobby-display-row">-</td></tr>
                         </table>
                     </div>
                 </div>
-
-                <div class="reopen-footer">
-                    SCHOOL WILL RE-OPEN ON 5TH JUNE 2026
-                </div>
-
+                <div class="reopen-footer">SCHOOL WILL RE-OPEN ON 5TH JUNE 2026</div>
                 <div class="signature-row">
                     <div class="signature-box"><div class="signature-label">CLASS TEACHER'S SIGNATURE</div></div>
                     <div class="signature-box"><div class="signature-label">PARENT'S/GUARDIAN'S SIGNATURE</div></div>
@@ -516,52 +483,31 @@
     </div>
 
     <script>
-        // Subject Lists Configuration
         const subjectLists = {
             "NR_JR": ["POETRY", "READING", "CONVERSATION", "SINGING", "STORY NARRATION", "ENGLISH(W)", "HINDI(O)", "HINDI(W)", "MATHS(O)", "MATHS(W)", "DRAWING AND CRAFT", "GK"],
             "SR": ["POETRY", "READING", "CONVERSATION", "SINGING", "STORY NARRATION", "ENGLISH(W)", "HINDI(O)", "HINDI(W)", "MATHS(O)", "MATHS(W)", "DRAWING AND CRAFT", "GK", "DICTATION"],
             "PRIMARY": ["ENGLISH", "MARATHI", "HINDI", "MATHEMATICS", "SCIENCE", "COMPUTER", "GK", "DRAWING", "YOGA", "PHYSICAL TRAINING"],
             "SECONDARY": ["ENGLISH", "MARATHI", "HINDI", "SS", "MATHEMATICS", "SCIENCE", "COMPUTER", "GK", "DRAWING", "YOGA", "PHYSICAL TRAINING"]
         };
-
         const gradeOptions = {
             "PRE_PRIMARY": ["A+", "A", "B+", "B", "C+", "C", "D+", "D"],
             "NORMAL": ["A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2"]
         };
-
-        const promotionMap = {
-            "NR": "JR", "JR": "SR", "SR": "1ST", "1": "2ND", "2": "3RD", "3": "4TH", "4": "5TH",
-            "5": "6TH", "6": "7TH", "7": "8TH", "8": "9TH", "9": "10TH", "10": "COMPLETED"
-        };
-
-        const gradeMap = { 
-            "A1": 8, "A2": 7, "B1": 6, "B2": 5, "C1": 4, "C2": 3, "D1": 2, "D2": 1,
-            "A+": 8, "A": 7, "B+": 6, "B": 5, "C+": 4, "C": 3, "D+": 2, "D": 1
-        };
-
+        const promotionMap = { "NR": "JR", "JR": "SR", "SR": "1ST", "1": "2ND", "2": "3RD", "3": "4TH", "4": "5TH", "5": "6TH", "6": "7TH", "7": "8TH", "8": "9TH", "9": "10TH", "10": "COMPLETED" };
+        const gradeMap = { "A1": 8, "A2": 7, "B1": 6, "B2": 5, "C1": 4, "C2": 3, "D1": 2, "D2": 1, "A+": 8, "A": 7, "B+": 6, "B": 5, "C+": 4, "C": 3, "D+": 2, "D": 1 };
         const pointToGradeNormal = ["D2", "D2", "D1", "C2", "C1", "B2", "B1", "A2", "A1"];
         const pointToGradePrePrimary = ["D", "D", "D+", "C", "C+", "B", "B+", "A", "A+"];
 
         function formatClass(std){
-            const map = {
-                "1":"1ST", "2":"2ND", "3":"3RD", "4":"4TH", "5":"5TH",
-                "6":"6TH", "7":"7TH", "8":"8TH", "9":"9TH", "10":"10TH",
-                "NR":"NR", "JR":"JR", "SR":"SR"
-            };
+            const map = { "1":"1ST", "2":"2ND", "3":"3RD", "4":"4TH", "5":"5TH", "6":"6TH", "7":"7TH", "8":"8TH", "9":"9TH", "10":"10TH", "NR":"NR", "JR":"JR", "SR":"SR" };
             return map[std] || std;
         }
 
-        function isPrePrimary() {
-            const std = document.getElementById('in_std').value;
+        function isPrePrimary(std = document.getElementById('in_std').value) {
             return ["NR", "JR", "SR"].includes(std);
         }
 
-        function getActiveGradeList() {
-            return isPrePrimary() ? gradeOptions.PRE_PRIMARY : gradeOptions.NORMAL;
-        }
-
-        function getActiveSubjectList() {
-            const std = document.getElementById('in_std').value;
+        function getActiveSubjectList(std = document.getElementById('in_std').value) {
             if (std === "NR" || std === "JR") return subjectLists.NR_JR;
             if (std === "SR") return subjectLists.SR;
             if (["1", "2", "3", "4", "5"].includes(std)) return subjectLists.PRIMARY;
@@ -576,33 +522,25 @@
 
         function updateManualGradeSelect() {
             const select = document.getElementById('in_res_manual_grade');
-            if(!select) return;
             select.innerHTML = '';
-            const list = getActiveGradeList();
+            const list = isPrePrimary() ? gradeOptions.PRE_PRIMARY : gradeOptions.NORMAL;
             list.forEach(g => {
                 const opt = document.createElement('option');
-                opt.value = g;
-                opt.textContent = g;
+                opt.value = g; opt.textContent = g;
                 select.appendChild(opt);
             });
         }
 
         function updateSubjectInputs() {
             const container = document.getElementById('subject-inputs-list');
-            if(!container) return;
             container.innerHTML = '';
             const list = getActiveSubjectList();
-            const grades = getActiveGradeList();
-            
+            const grades = isPrePrimary() ? gradeOptions.PRE_PRIMARY : gradeOptions.NORMAL;
             list.forEach(s => {
                 const row = document.createElement('div');
                 row.className = 'subject-row';
                 let gradeOpts = grades.map(g => `<option value="${g}">${g}</option>`).join('');
-                row.innerHTML = `
-                    <div style="font-size: 12px; font-weight: 600;">${s}</div>
-                    <select class="term1-val" onchange="autoSave()">${gradeOpts}</select>
-                    <select class="term2-val" onchange="autoSave()">${gradeOpts}</select>
-                `;
+                row.innerHTML = `<div style="font-size: 12px; font-weight: 600;">${s}</div><select class="term1-val" onchange="autoSave()">${gradeOpts}</select><select class="term2-val" onchange="autoSave()">${gradeOpts}</select>`;
                 container.appendChild(row);
             });
         }
@@ -624,16 +562,17 @@
                 res_status: document.getElementById('in_res_status').value,
                 res_promote: document.getElementById('in_res_promote').value
             };
-            localStorage.setItem('marksheet_v3_7_data', JSON.stringify(data));
+            localStorage.setItem('marksheet_temp_current', JSON.stringify(data));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('marksheet_v3_7_data');
-            if(!raw) {
-                handleStandardChange();
-                return;
-            }
-            const data = JSON.parse(raw);
+            const raw = localStorage.getItem('marksheet_temp_current');
+            if(raw) applyDataToForm(JSON.parse(raw));
+            else handleStandardChange();
+            renderHistory();
+        }
+
+        function applyDataToForm(data) {
             document.getElementById('in_name').value = data.name || '';
             document.getElementById('in_std').value = data.std || '9';
             handleStandardChange();
@@ -653,11 +592,9 @@
             if(data.res_promote) document.getElementById('in_res_promote').value = data.res_promote;
         }
 
-        function generate() {
-            const raw = localStorage.getItem('marksheet_v3_7_data');
-            if(!raw) return alert("Please enter data first.");
-            const data = JSON.parse(raw);
-            if(!data.name) return alert("Please enter Student Name.");
+        function generate(silent = false) {
+            const data = JSON.parse(localStorage.getItem('marksheet_temp_current') || '{}');
+            if(!data.name && !silent) return alert("Please enter Student Name.");
 
             document.getElementById('out_name').innerText = data.name.toUpperCase();
             document.getElementById('out_std').innerText = formatClass(data.std);
@@ -675,272 +612,124 @@
             const tbody = document.getElementById('out_subject_rows');
             tbody.innerHTML = '';
             let totalPoints = 0;
-            const currentList = getActiveSubjectList();
+            const currentList = getActiveSubjectList(data.std);
 
             currentList.forEach((s, i) => {
-                const g1 = data.grades1[i] || (isPrePrimary() ? "A" : "A1");
-                const g2 = data.grades2[i] || (isPrePrimary() ? "A" : "A1");
+                const g1 = data.grades1[i] || (isPrePrimary(data.std) ? "A" : "A1");
+                const g2 = data.grades2[i] || (isPrePrimary(data.std) ? "A" : "A1");
                 totalPoints += (gradeMap[g1] + gradeMap[g2]);
                 tbody.innerHTML += `<tr><td class="text-left">${s}</td><td style="font-weight:bold;">${g1}</td><td style="font-weight:bold;">${g2}</td></tr>`;
             });
 
             let finalGrade;
-            if (data.res_mode === 'manual') {
-                finalGrade = data.res_manual_grade;
-            } else {
+            if (data.res_mode === 'manual') finalGrade = data.res_manual_grade;
+            else {
                 const avg = Math.round(totalPoints / (currentList.length * 2));
-                finalGrade = isPrePrimary() ? pointToGradePrePrimary[avg] : pointToGradeNormal[avg];
+                finalGrade = isPrePrimary(data.std) ? pointToGradePrePrimary[avg] : pointToGradeNormal[avg];
             }
             document.getElementById('out_grade_final').innerText = `GRADE: ${finalGrade}`;
             
-            if (data.res_status === 'FAIL') {
-                document.getElementById('out_promotion').innerText = `RESULT : FAILED`;
-            } else {
-                let promotionClass = (data.res_mode === 'manual') ? formatClass(data.res_promote) : (promotionMap[data.std] || "-");
+            if (data.res_status === 'FAIL') document.getElementById('out_promotion').innerText = `RESULT : FAILED`;
+            else {
+                let promotionClass = (data.res_mode === 'manual') ? formatClass(data.res_promote) : (formatClass(promotionMap[data.std]) || "-");
                 document.getElementById('out_promotion').innerText = `PASSED & PROMOTED TO : ${promotionClass}`;
             }
 
+            // Sync Remarks Highlighting
+            ["rem_rec_1","rem_rec_2","rem_rec_3"].forEach(id => document.getElementById(id).style.opacity = "0.2");
+            if(['A1','A2','A','A+'].includes(finalGrade)) document.getElementById('rem_rec_1').style.opacity = "1";
+            else if(['B1','B2','B','B+'].includes(finalGrade)) document.getElementById('rem_rec_2').style.opacity = "1";
+            else document.getElementById('rem_rec_3').style.opacity = "1";
+
             document.getElementById('printable-marksheet').style.display = 'block';
-            window.scrollTo({ top: document.getElementById('printable-marksheet').offsetTop - 20, behavior: 'smooth' });
+            if(!silent) {
+                saveToHistory(data);
+                window.scrollTo({ top: document.getElementById('printable-marksheet').offsetTop - 20, behavior: 'smooth' });
+            }
+        }
+
+        function saveToHistory(data) {
+            let history = JSON.parse(localStorage.getItem('marksheet_history') || '[]');
+            const entry = { ...data, timestamp: new Date().toLocaleString(), id: Date.now() };
+            history.unshift(entry);
+            localStorage.setItem('marksheet_history', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            const search = document.getElementById('history-search').value.toLowerCase();
+            let history = JSON.parse(localStorage.getItem('marksheet_history') || '[]');
+            
+            list.innerHTML = '';
+            history.filter(item => item.name.toLowerCase().includes(search) || formatClass(item.std).toLowerCase().includes(search))
+            .forEach(item => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td style="font-weight:600">${item.name.toUpperCase()}</td>
+                    <td>${formatClass(item.std)}</td>
+                    <td>${item.roll}</td>
+                    <td style="color:#64748b; font-size:11px">${item.timestamp}</td>
+                    <td class="action-btns">
+                        <button class="btn btn-edit" onclick="editHistory(${item.id})">Edit</button>
+                        <button class="btn btn-gen" style="padding:5px 10px; font-size:10px" onclick="loadAndAction(${item.id}, 'print')">Print</button>
+                        <button class="btn btn-pdf" style="padding:5px 10px; font-size:10px" onclick="loadAndAction(${item.id}, 'pdf')">PDF</button>
+                        <button class="btn btn-del" onclick="deleteHistory(${item.id})">Delete</button>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function editHistory(id) {
+            let history = JSON.parse(localStorage.getItem('marksheet_history') || '[]');
+            const item = history.find(i => i.id === id);
+            if(item) {
+                applyDataToForm(item);
+                autoSave();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        function deleteHistory(id) {
+            if(confirm("Remove this record from history?")) {
+                let history = JSON.parse(localStorage.getItem('marksheet_history') || '[]');
+                history = history.filter(i => i.id !== id);
+                localStorage.setItem('marksheet_history', JSON.stringify(history));
+                renderHistory();
+            }
+        }
+
+        function loadAndAction(id, type) {
+            let history = JSON.parse(localStorage.getItem('marksheet_history') || '[]');
+            const item = history.find(i => i.id === id);
+            if(item) {
+                localStorage.setItem('marksheet_temp_current', JSON.stringify(item));
+                generate(true); // Silent generate to update the UI
+                setTimeout(() => {
+                    if(type === 'print') window.print();
+                    else downloadPDF();
+                }, 500);
+            }
         }
 
         function downloadPDF() {
             const element = document.getElementById("printable-marksheet");
-            if(element.style.display === "none") { alert("Please generate the preview first!"); return; }
+            if(element.style.display === "none") return alert("Generate preview first!");
             element.style.display = "block";
-            const studentName = document.getElementById("in_name").value.trim() || "Student";
-            const std = document.getElementById("in_std").value;
-            const fileName = (studentName + " " + formatClass(std) + ".pdf").replace(/[\\/:*?"<>|]/g,'');
+            const data = JSON.parse(localStorage.getItem('marksheet_temp_current') || '{}');
+            const fileName = ((data.name || 'Student') + " " + formatClass(data.std) + ".pdf").replace(/[\\/:*?"<>|]/g,'');
+
             const opt = {
                 margin: 0, filename: fileName, image: { type: "jpeg", quality: 1 },
-                html2canvas: { scale: 4, dpi: 300, letterRendering: true, useCORS: true, allowTaint: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0 },
+                html2canvas: { scale: 4, dpi: 300, letterRendering: true, useCORS: true, backgroundColor: "#ffffff" },
                 jsPDF: { unit: "mm", format: [297,210], orientation: "landscape", compress: false }
             };
             setTimeout(() => { html2pdf().set(opt).from(element).save(); }, 500);
         }
 
-        async function downloadExcel() {
-            const studentName = document.getElementById("in_name").value.trim() || "Student";
-            const stdVal = document.getElementById("in_std").value;
-            const classLabel = formatClass(stdVal);
-            const div = document.getElementById("in_div").value;
-            const roll = document.getElementById("in_roll").value;
-            const address = document.getElementById("in_address").value;
-            const dobInput = document.getElementById("in_dob").value;
-            let dob = dobInput;
-            if(dobInput) { const [y,m,d] = dobInput.split('-'); dob = `${d}/${m}/${y}`; }
-            const gender = document.getElementById("in_gender").value;
-            const hobbies = document.getElementById("in_hobbies").value || "-";
-
-            const fileName = (studentName + " " + classLabel + ".xlsx").replace(/[\\/:*?"<>|]/g,'');
-
-            const workbook = new ExcelJS.Workbook();
-            const worksheet = workbook.addWorksheet('Report Card');
-
-            // Set default font to Times New Roman
-            worksheet.getStyle('A1').font = { name: 'Times New Roman' };
-
-            // Column Widths
-            worksheet.columns = [
-                { width: 15 }, { width: 25 }, { width: 15 }, { width: 20 }, { width: 15 }, { width: 20 }, { width: 15 }, { width: 20 }, { width: 20 }
-            ];
-
-            // --- HEADER ---
-            const h1 = worksheet.addRow(["SITARAM EDUCATIONAL TRUST"]);
-            worksheet.mergeCells(`A${h1.number}:I${h1.number}`);
-            h1.getCell(1).font = { name: 'Times New Roman', size: 14, bold: true };
-            h1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-            const h2 = worksheet.addRow(["AMBITION PUBLIC SCHOOL"]);
-            worksheet.mergeCells(`A${h2.number}:I${h2.number}`);
-            h2.getCell(1).font = { name: 'Times New Roman', size: 24, bold: true, color: { argb: 'FF800000' } };
-            h2.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-            const h3 = worksheet.addRow(["BABA COMPOUND, VALAIPADA ROAD, SANTOSH BHUVAN, NSP(E)-401209"]);
-            worksheet.mergeCells(`A${h3.number}:I${h3.number}`);
-            h3.getCell(1).font = { name: 'Times New Roman', size: 10, bold: true };
-            h3.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-            const h4 = worksheet.addRow(["FINAL EXAMINATION REPORT CARD FOR ACADEMIC YEAR 2025-26"]);
-            worksheet.mergeCells(`A${h4.number}:I${h4.number}`);
-            h4.getCell(1).font = { name: 'Times New Roman', size: 11, bold: true, color: { argb: 'FF8B0000' } };
-            h4.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7E7' } };
-            h4.getCell(1).border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} };
-            h4.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-
-            worksheet.addRow([]); // Spacer
-
-            // --- 3-COLUMN CONTENT START ---
-            const startRow = worksheet.lastRow.number + 1;
-
-            // Student Bio (Left)
-            worksheet.getCell(`A${startRow}`).value = "NAME OF STUDENT";
-            worksheet.getCell(`A${startRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
-            worksheet.mergeCells(`A${startRow}:C${startRow}`);
-            
-            const nameRow = startRow + 1;
-            worksheet.getCell(`A${nameRow}`).value = studentName.toUpperCase();
-            worksheet.getCell(`A${nameRow}`).font = { bold: true, size: 12 };
-            worksheet.mergeCells(`A${nameRow}:C${nameRow}`);
-
-            const detailsLabelRow = nameRow + 1;
-            worksheet.getCell(`A${detailsLabelRow}`).value = "STD.";
-            worksheet.getCell(`B${detailsLabelRow}`).value = "DIV";
-            worksheet.getCell(`C${detailsLabelRow}`).value = "ROLL NO.";
-            ['A','B','C'].forEach(c => worksheet.getCell(`${c}${detailsLabelRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} });
-
-            const detailsDataRow = detailsLabelRow + 1;
-            worksheet.getCell(`A${detailsDataRow}`).value = classLabel;
-            worksheet.getCell(`B${detailsDataRow}`).value = div;
-            worksheet.getCell(`C${detailsDataRow}`).value = roll;
-
-            const bioRow3 = detailsDataRow + 1;
-            worksheet.getCell(`A${bioRow3}`).value = "D.O.B";
-            worksheet.getCell(`B${bioRow3}`).value = "GENDER";
-            worksheet.mergeCells(`B${bioRow3}:C${bioRow3}`);
-            ['A','B','C'].forEach(c => worksheet.getCell(`${c}${bioRow3}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} });
-
-            const bioRow4 = bioRow3 + 1;
-            worksheet.getCell(`A${bioRow4}`).value = dob;
-            worksheet.getCell(`B${bioRow4}`).value = gender;
-            worksheet.mergeCells(`B${bioRow4}:C${bioRow4}`);
-
-            const addrHead = bioRow4 + 1;
-            worksheet.getCell(`A${addrHead}`).value = "ADDRESS";
-            worksheet.mergeCells(`A${addrHead}:C${addrHead}`);
-            worksheet.getCell(`A${addrHead}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
-
-            const addrRow = addrHead + 1;
-            worksheet.getCell(`A${addrRow}`).value = address.toUpperCase();
-            worksheet.mergeCells(`A${addrRow}:C${addrRow + 2}`);
-            worksheet.getCell(`A${addrRow}`).alignment = { wrapText: true, vertical: 'top' };
-
-            // Interpretation Table (Bottom Left)
-            const interpStart = addrRow + 4;
-            worksheet.getCell(`A${interpStart}`).value = "INTERPRETATION";
-            worksheet.mergeCells(`A${interpStart}:C${interpStart}`);
-            worksheet.getCell(`A${interpStart}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
-            worksheet.getCell(`A${interpStart + 1}`).value = "A1: 91-100% | A2: 81-90.99%";
-            worksheet.getCell(`A${interpStart + 2}`).value = "B1: 71-80.99% | B2: 61-70.99%";
-            worksheet.getCell(`A${interpStart + 3}`).value = "C1: 51-60.99% | C2: 41-50.99%";
-            worksheet.getCell(`A${interpStart + 4}`).value = "D1: 33-40.99% | D2: 21-32.99%";
-            for(let i=1; i<=4; i++) worksheet.mergeCells(`A${interpStart + i}:C${interpStart + i}`);
-
-            // Academic Table (Center)
-            worksheet.getCell(`D${startRow}`).value = "SUBJECT NAME";
-            worksheet.getCell(`E${startRow}`).value = "1ST TERM EXAM";
-            worksheet.getCell(`F${startRow}`).value = "2ND TERM EXAM";
-            ['D','E','F'].forEach(c => { 
-                worksheet.getCell(`${c}${startRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
-                worksheet.getCell(`${c}${startRow}`).font = { bold: true };
-            });
-
-            const subjectsList = getActiveSubjectList();
-            const g1List = Array.from(document.querySelectorAll('.term1-val')).map(s => s.value);
-            const g2List = Array.from(document.querySelectorAll('.term2-val')).map(s => s.value);
-            let totalPts = 0;
-            subjectsList.forEach((s, idx) => {
-                const r = startRow + 1 + idx;
-                worksheet.getCell(`D${r}`).value = s;
-                worksheet.getCell(`E${r}`).value = g1List[idx];
-                worksheet.getCell(`F${r}`).value = g2List[idx];
-                totalPts += (gradeMap[g1List[idx]] || 0) + (gradeMap[g2List[idx]] || 0);
-            });
-
-            const tableEndRow = startRow + subjectsList.length;
-            const resRow = tableEndRow + 1;
-            let finalGrade;
-            const mode = document.getElementById('in_res_mode').value;
-            if (mode === 'manual') finalGrade = document.getElementById('in_res_manual_grade').value;
-            else { const avg = Math.round(totalPts / (subjectsList.length * 2)); finalGrade = isPrePrimary() ? pointToGradePrePrimary[avg] : pointToGradeNormal[avg]; }
-            
-            const status = document.getElementById('in_res_status').value;
-            let promo = (status === 'FAIL') ? "RESULT : FAILED" : "PASSED & PROMOTED TO : " + ((mode === 'manual') ? formatClass(document.getElementById('in_res_promote').value) : (promotionMap[stdVal] || "-"));
-
-            worksheet.getCell(`D${resRow}`).value = "GRADE: " + finalGrade;
-            worksheet.getCell(`D${resRow}`).font = { bold: true, size: 13 };
-            worksheet.getCell(`E${resRow}`).value = promo;
-            worksheet.mergeCells(`E${resRow}:F${resRow}`);
-            worksheet.getCell(`E${resRow}`).font = { bold: true };
-
-            // Remarks Column (Right)
-            worksheet.getCell(`G${startRow}`).value = "DESCRIPTIVE REMARKS";
-            worksheet.mergeCells(`G${startRow}:I${startRow}`);
-            worksheet.getCell(`G${startRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
-            
-            const remRow1 = startRow + 1;
-            worksheet.getCell(`G${remRow1}`).value = "REMARKABLE PROGRESS";
-            worksheet.mergeCells(`G${remRow1}:I${remRow1}`);
-            if(['A1','A2','A','A+'].includes(finalGrade)) worksheet.getCell(`G${remRow1}`).font = { color: {argb:'FF15803D'}, bold: true };
-
-            const remRow2 = remRow1 + 1;
-            worksheet.getCell(`G${remRow2}`).value = "GOOD";
-            worksheet.mergeCells(`G${remRow2}:I${remRow2}`);
-            if(['B1','B2','B','B+'].includes(finalGrade)) worksheet.getCell(`G${remRow2}`).font = { bold: true };
-
-            const remRow3 = remRow2 + 1;
-            worksheet.getCell(`G${remRow3}`).value = "IMPROVEMENT NEEDED";
-            worksheet.mergeCells(`G${remRow3}:I${remRow3}`);
-            if(['C1','C2','C','C+'].includes(finalGrade)) worksheet.getCell(`G${remRow3}`).font = { bold: true };
-
-            const engRow = remRow3 + 1;
-            worksheet.getCell(`G${engRow}`).value = "ENGLISH READING / WRITING";
-            worksheet.mergeCells(`G${engRow}:I${engRow + 2}`);
-            worksheet.getCell(`G${engRow}`).alignment = { horizontal:'center', vertical:'middle' };
-
-            const hobbyHead = engRow + 3;
-            worksheet.getCell(`G${hobbyHead}`).value = "INTEREST / HOBBIES";
-            worksheet.mergeCells(`G${hobbyHead}:I${hobbyHead}`);
-            worksheet.getCell(`G${hobbyHead}`).font = { color: {argb:'FF1D4ED8'}, bold: true };
-            worksheet.getCell(`G${hobbyHead}`).border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
-
-            const hobbyVal = hobbyHead + 1;
-            worksheet.getCell(`G${hobbyVal}`).value = hobbies.toUpperCase();
-            worksheet.mergeCells(`G${hobbyVal}:I${hobbyVal + 1}`);
-            worksheet.getCell(`G${hobbyVal}`).alignment = { horizontal:'center', vertical:'middle' };
-            worksheet.getCell(`G${hobbyVal}`).font = { bold: true };
-
-            // Apply Borders to Bio and Academic and Remarks
-            const maxR = Math.max(interpStart + 4, resRow, hobbyVal + 1);
-            for(let r = startRow; r <= maxR; r++) {
-                for(let c = 1; c <= 9; c++) {
-                    const cell = worksheet.getRow(r).getCell(c);
-                    cell.border = cell.border || {};
-                    Object.assign(cell.border, { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} });
-                    cell.alignment = cell.alignment || { horizontal:'center', vertical:'middle' };
-                    cell.font = cell.font || { name: 'Times New Roman' };
-                }
-            }
-
-            // --- FOOTER ---
-            const footRow = maxR + 2;
-            const rf = worksheet.addRow(["SCHOOL WILL RE-OPEN ON 5TH JUNE 2026"]);
-            worksheet.mergeCells(`A${rf.number}:I${rf.number}`);
-            rf.getCell(1).font = { name:'Times New Roman', bold:true, size:16, color:{argb:'FF8B4513'} };
-            rf.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
-            rf.getCell(1).border = { top:{style:'thin'} };
-
-            const sigRow = rf.number + 1;
-            worksheet.addRow([]); // Signature spacer
-            const sigL = worksheet.addRow(["CLASS TEACHER'S SIGNATURE", "", "", "PARENT'S/GUARDIAN'S SIGNATURE", "", "", "H.M.'S SIGNATURE"]);
-            worksheet.mergeCells(`A${sigL.number}:C${sigL.number}`);
-            worksheet.mergeCells(`D${sigL.number}:F${sigL.number}`);
-            worksheet.mergeCells(`G${sigL.number}:I${sigL.number}`);
-            [1, 4, 7].forEach(c => {
-                sigL.getCell(c).font = { name:'Times New Roman', bold:true, size:11, color:{argb:'FF1E3A8A'} };
-                sigL.getCell(c).alignment = { horizontal:'center' };
-            });
-            worksheet.getRow(sigL.number - 1).height = 40; // Space for signatures
-
-            // Final Global Styling
-            worksheet.eachRow(row => { row.eachCell(cell => { if(!cell.font) cell.font = { name: 'Times New Roman' }; }); });
-
-            // Write to file
-            const buffer = await workbook.xlsx.writeBuffer();
-            saveAs(new Blob([buffer]), fileName);
-        }
-
-        function resetAll() { if(confirm("Clear all data and reset?")) { localStorage.removeItem('marksheet_v3_7_data'); location.reload(); } }
+        function resetAll() { if(confirm("Clear current form?")) { localStorage.removeItem('marksheet_temp_current'); location.reload(); } }
+        
         window.onload = loadSavedData;
     </script>
 </body>
