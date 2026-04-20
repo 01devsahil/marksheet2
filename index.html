@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebNexify | A4 Landscape Marksheet Generator</title>
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <!-- PDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- SheetJS Library for Excel -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --admin-bg: #f0f2f5;
+            --accent: #1e293b;
+            --maroon: #800000;
+            --navy: #000080;
+            --banner-bg: #fce7e7;
+            --banner-text: #8b0000;
+            --reopen-text: #8b4513;
+            --border-black: #000000;
+            --hobby-blue: #1d4ed8;
+            --signature-blue: #1e3a8a;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--admin-bg);
+            color: #1e293b;
+            padding-bottom: 50px;
+        }
+
+        /* --- Admin Panel Styling --- */
+        .admin-wrapper {
+            max-width: 1100px;
+            margin: 20px auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+
+        .admin-header {
+            background: var(--accent);
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .admin-content { padding: 25px; }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .field-group { display: flex; flex-direction: column; gap: 5px; }
+        label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #64748b; }
+        input, select {
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .subject-grid-header {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            padding: 10px;
+            background: #f8fafc;
+            font-weight: bold;
+            font-size: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .subject-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 10px;
+            padding: 8px 10px;
+            border-inline: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            align-items: center;
+        }
+
+        .admin-section-title {
+            margin: 20px 0 10px 0;
+            padding-bottom: 5px;
+            border-bottom: 1px solid #e2e8f0;
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--accent);
+            text-transform: uppercase;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #f1f5f9;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 13px;
+            transition: opacity 0.2s;
+        }
+        .btn-gen { background: #0f172a; color: white; }
+        .btn-print { background: #059669; color: white; }
+        .btn-pdf { background: #2563eb; color: white; }
+        .btn-xls { background: #166534; color: white; }
+        .btn-reset { background: #ef4444; color: white; }
+        .btn:hover { opacity: 0.9; }
+
+        /* --- Marksheet Preview (Strict A4 Fit) --- */
+        #printable-marksheet {
+            display: none;
+            width: 297mm;
+            height: 210mm;
+            background: #fff;
+            margin: 0 auto;
+            padding: 6mm;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            position: relative;
+            font-family: "Times New Roman", Times, serif;
+            color: #000;
+            overflow: hidden;
+            transform: none;
+            zoom: 1;
+            max-width: 100%;
+            image-rendering: high-quality;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        .outer-border {
+            border: 2px solid var(--border-black);
+            height: 100%;
+            padding: 3px;
+        }
+
+        .inner-border {
+            border: 1px solid var(--border-black);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Layout */
+        .marksheet-header {
+            display: grid;
+            grid-template-columns: 150px 1fr 150px;
+            border-bottom: 2px solid var(--border-black);
+            align-items: center;
+            min-height: 110px;
+            padding: 5px 0;
+            flex-shrink: 0;
+        }
+
+        .logo-container { padding-left: 15px; text-align: left; }
+        .logo-container img { width: 110px; max-height: 95px; object-fit: contain; }
+
+        .school-info { text-align: center; }
+        .school-info .trust-name { font-size: 11pt; font-weight: bold; margin-bottom: 1px; }
+        .school-info .school-name { font-size: 22pt; font-weight: bold; color: var(--maroon); margin-bottom: 2px; }
+        .school-info .address { font-size: 9pt; font-weight: bold; margin-bottom: 6px; }
+        
+        .report-card-banner {
+            background-color: var(--banner-bg);
+            border: 1px solid var(--border-black);
+            padding: 4px;
+            font-weight: bold;
+            font-size: 10pt;
+            color: var(--banner-text);
+            display: block;
+            width: 100%;
+            text-transform: uppercase;
+        }
+
+        /* Body Structure */
+        .main-content-grid {
+            display: grid;
+            grid-template-columns: 26% 40% 34%;
+            flex-grow: 1;
+        }
+
+        .col { border-right: 1px solid var(--border-black); height: 100%; display: flex; flex-direction: column; }
+        .col:last-child { border-right: none; }
+
+        table { width: 100%; border-collapse: collapse; }
+        td { border: 1px solid var(--border-black); padding: 3px 6px; text-align: center; font-size: 10pt; height: 26px; }
+        .bg-gray { background-color: #f2f2f2; font-weight: bold; }
+        .text-left { text-align: left; padding-left: 10px; }
+
+        .address-box {
+            height: 75px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            text-align: center;
+            font-size: 8.5pt;
+            font-weight: bold;
+        }
+
+        /* Center Table Fix */
+        .subject-table-container { flex-grow: 1; }
+        .subject-table-container td { height: 24px; font-size: 9.5pt; }
+
+        /* Right Column Specifics */
+        .remarks-table td { height: 32px; font-weight: bold; text-transform: uppercase; font-size: 10.5pt; }
+        .remark-green { color: #15803d !important; }
+        .remark-black { color: #000000 !important; }
+        .remark-red { color: #b91c1c !important; }
+        .hobby-heading-row { color: var(--hobby-blue) !important; font-weight: bold; border-top: 1px solid #000; }
+        .eng-reading-row { height: 75px !important; }
+        .hobby-display-row { height: 55px !important; font-size: 12pt !important; }
+
+        .promotion-footer {
+            border-top: 1px solid var(--border-black);
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: bold;
+        }
+
+        /* Bottom Section Compacted */
+        .reopen-footer {
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            font-size: 14pt;
+            color: var(--reopen-text);
+            border-top: 1px solid var(--border-black);
+            padding: 6px 0;
+            background: #fff;
+            flex-shrink: 0;
+            text-transform: uppercase;
+        }
+
+        .signature-row {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            border-top: 1px solid var(--border-black);
+            height: 75px;
+            flex-shrink: 0;
+        }
+
+        .signature-box {
+            border-right: 1px solid var(--border-black);
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            padding-bottom: 8px;
+        }
+
+        .signature-box:last-child { border-right: none; }
+
+        .signature-label {
+            color: var(--signature-blue);
+            font-weight: bold;
+            font-size: 10pt;
+            text-align: center;
+            width: 100%;
+            text-transform: uppercase;
+        }
+
+        /* Print Settings */
+        @media print {
+            body { margin: 0; padding: 0; background: white; }
+            .admin-wrapper { display: none !important; }
+            #printable-marksheet {
+                display: block !important;
+                margin: 0 !important;
+                border: none !important;
+                width: 297mm;
+                height: 210mm;
+            }
+            @page {
+                size: A4 landscape;
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="admin-wrapper">
+        <div class="admin-header">
+            <h1 style="font-size: 20px; font-weight: 700;">WebNexify Marksheet Engine</h1>
+            <p style="font-size: 12px; opacity: 0.8; margin-top: 3px;">Production Multi-Curriculum v3.7</p>
+        </div>
+        
+        <div class="admin-content">
+            <div class="admin-section-title">Student Information</div>
+            <div class="input-grid">
+                <div class="field-group">
+                    <label>Student Name</label>
+                    <input type="text" id="in_name" placeholder="Full Name" oninput="autoSave()">
+                </div>
+                <div class="field-group">
+                    <label>Standard</label>
+                    <select id="in_std" onchange="handleStandardChange()">
+                        <option value="NR">NR</option>
+                        <option value="JR">JR</option>
+                        <option value="SR">SR</option>
+                        <option value="1">1ST</option>
+                        <option value="2">2ND</option>
+                        <option value="3">3RD</option>
+                        <option value="4">4TH</option>
+                        <option value="5">5TH</option>
+                        <option value="6">6TH</option>
+                        <option value="7">7TH</option>
+                        <option value="8">8TH</option>
+                        <option value="9" selected>9TH</option>
+                        <option value="10">10TH</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>Division</label>
+                    <input type="text" id="in_div" value="A" oninput="autoSave()">
+                </div>
+                <div class="field-group">
+                    <label>Roll No.</label>
+                    <input type="text" id="in_roll" value="03" oninput="autoSave()">
+                </div>
+                <div class="field-group">
+                    <label>Date of Birth</label>
+                    <input type="date" id="in_dob" value="2010-01-01" oninput="autoSave()">
+                </div>
+                <div class="field-group">
+                    <label>Gender</label>
+                    <select id="in_gender" onchange="autoSave()">
+                        <option value="MALE">MALE</option>
+                        <option value="FEMALE">FEMALE</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-grid" style="grid-template-columns: 2fr 1fr;">
+                <div class="field-group">
+                    <label>Address</label>
+                    <input type="text" id="in_address" placeholder="Full Address" oninput="autoSave()">
+                </div>
+                <div class="field-group">
+                    <label>Interests / Hobbies</label>
+                    <input type="text" id="in_hobbies" placeholder="Hobby details..." oninput="autoSave()">
+                </div>
+            </div>
+
+            <div class="admin-section-title">Academic Grades</div>
+            <div id="subject-inputs-container">
+                <div class="subject-grid-header">
+                    <div>Subject Name</div>
+                    <div>1ST TERM</div>
+                    <div>2ND TERM</div>
+                </div>
+                <div id="subject-inputs-list"></div>
+            </div>
+
+            <div class="admin-section-title">Final Result Settings</div>
+            <div class="input-grid">
+                <div class="field-group">
+                    <label>Final Grade Mode</label>
+                    <select id="in_res_mode" onchange="autoSave()">
+                        <option value="auto">Auto Calculate</option>
+                        <option value="manual">Manual Entry</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>Manual Final Grade</label>
+                    <select id="in_res_manual_grade" onchange="autoSave()">
+                        <!-- Options populated dynamically -->
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>Passed / Failed</label>
+                    <select id="in_res_status" onchange="autoSave()">
+                        <option value="PASS">PASS</option>
+                        <option value="FAIL">FAIL</option>
+                    </select>
+                </div>
+                <div class="field-group">
+                    <label>Promote To Class</label>
+                    <select id="in_res_promote" onchange="autoSave()">
+                        <option value="NR">NR</option>
+                        <option value="JR">JR</option>
+                        <option value="SR">SR</option>
+                        <option value="1ST">1ST</option>
+                        <option value="2ND">2ND</option>
+                        <option value="3RD">3RD</option>
+                        <option value="4TH">4TH</option>
+                        <option value="5TH">5TH</option>
+                        <option value="6TH">6TH</option>
+                        <option value="7TH">7TH</option>
+                        <option value="8TH">8TH</option>
+                        <option value="9TH">9TH</option>
+                        <option value="10TH">10TH</option>
+                        <option value="COMPLETED">COMPLETED</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="admin-actions">
+                <button class="btn btn-gen" onclick="generate()">Preview Marksheet</button>
+                <button class="btn btn-print" onclick="window.print()">Print Report</button>
+                <button class="btn btn-pdf" onclick="downloadPDF()">Download PDF</button>
+                <button class="btn btn-xls" onclick="downloadExcel()">Download Excel</button>
+                <button class="btn btn-reset" onclick="resetAll()">Reset Form</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Marksheet UI -->
+    <div id="printable-marksheet">
+        <div class="outer-border">
+            <div class="inner-border">
+                
+                <div class="marksheet-header">
+                    <div class="logo-container">
+                        <img src="ambition.jpeg" alt="Ambition Logo" onerror="this.src='https://via.placeholder.com/120x100?text=LOGO'">
+                    </div>
+                    <div class="school-info">
+                        <div class="trust-name">SITARAM EDUCATIONAL TRUST</div>
+                        <div class="school-name">AMBITION PUBLIC SCHOOL</div>
+                        <div class="address">BABA COMPOUND, VALAIPADA ROAD, SANTOSH BHUVAN, NSP(E)-401209</div>
+                        <div class="report-card-banner">
+                            FINAL EXAMINATION REPORT CARD FOR ACADEMIC YEAR 2025-26
+                        </div>
+                    </div>
+                    <div class="empty-spacer"></div>
+                </div>
+
+                <div class="main-content-grid">
+                    <div class="col">
+                        <table style="height: auto;">
+                            <tr><td class="bg-gray">NAME OF STUDENT</td></tr>
+                            <tr><td style="font-weight: bold; font-size: 11pt; height: 32px;" id="out_name">-</td></tr>
+                        </table>
+                        <table style="border-top: 0;">
+                            <tr><td class="bg-gray">STD.</td><td class="bg-gray">DIV</td><td class="bg-gray">ROLL NO.</td></tr>
+                            <tr><td id="out_std">-</td><td id="out_div">-</td><td id="out_roll">-</td></tr>
+                            <tr><td class="bg-gray">D.O.B</td><td class="bg-gray" colspan="2">GENDER</td></tr>
+                            <tr><td id="out_dob">-</td><td colspan="2" id="out_gender">-</td></tr>
+                            <tr><td class="bg-gray" colspan="3">ADDRESS</td></tr>
+                            <tr><td colspan="3"><div class="address-box" id="out_address">-</div></td></tr>
+                        </table>
+                        <div style="margin-top: auto; padding: 4px;">
+                            <div class="bg-gray" style="border: 1px solid #000; text-align: center; font-size: 9pt;">INTERPRETATION</div>
+                            <table class="interpretation-table">
+                                <tr><td>A1</td><td>91-100%</td><td>A2</td><td>81-90.99%</td></tr>
+                                <tr><td>B1</td><td>71-80.99%</td><td>B2</td><td>61-70.99%</td></tr>
+                                <tr><td>C1</td><td>51-60.99%</td><td>C2</td><td>41-50.99%</td></tr>
+                                <tr><td>D1</td><td>33-40.99%</td><td>D2</td><td>21-32.99%</td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="col">
+                        <div class="subject-table-container">
+                            <table>
+                                <tr class="bg-gray"><td class="text-left" style="width: 48%;">SUBJECT NAME</td><td>1ST TERM EXAM</td><td>2ND TERM EXAM</td></tr>
+                                <tbody id="out_subject_rows"></tbody>
+                            </table>
+                        </div>
+                        <div class="promotion-footer">
+                            <div id="out_grade_final" style="font-size: 12pt;">GRADE: -</div>
+                            <div id="out_promotion" style="font-size: 10pt;">PASSED & PROMOTED TO : -</div>
+                        </div>
+                    </div>
+
+                    <div class="col">
+                        <table class="remarks-table">
+                            <tr><td class="bg-gray">DESCRIPTIVE REMARKS</td></tr>
+                            <tr><td class="remark-green">REMARKABLE PROGRESS</td></tr>
+                            <tr><td class="remark-black">GOOD</td></tr>
+                            <tr><td class="remark-red">IMPROVEMENT NEEDED</td></tr>
+                            <tr><td class="eng-reading-row">ENGLISH READING / WRITING</td></tr>
+                            <tr><td class="hobby-heading-row">INTEREST / HOBBIES</td></tr>
+                            <tr><td id="out_hobbies" class="hobby-display-row">-</td></tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="reopen-footer">
+                    SCHOOL WILL RE-OPEN ON 5TH JUNE 2026
+                </div>
+
+                <div class="signature-row">
+                    <div class="signature-box"><div class="signature-label">CLASS TEACHER'S SIGNATURE</div></div>
+                    <div class="signature-box"><div class="signature-label">PARENT'S/GUARDIAN'S SIGNATURE</div></div>
+                    <div class="signature-box"><div class="signature-label">H.M.'S SIGNATURE</div></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Subject Lists Configuration
+        const subjectLists = {
+            "NR_JR": ["POETRY", "READING", "CONVERSATION", "SINGING", "STORY NARRATION", "ENGLISH(W)", "HINDI(O)", "HINDI(W)", "MATHS(O)", "MATHS(W)", "DRAWING AND CRAFT", "GK"],
+            "SR": ["POETRY", "READING", "CONVERSATION", "SINGING", "STORY NARRATION", "ENGLISH(W)", "HINDI(O)", "HINDI(W)", "MATHS(O)", "MATHS(W)", "DRAWING AND CRAFT", "GK", "DICTATION"],
+            "PRIMARY": ["ENGLISH", "MARATHI", "HINDI", "MATHEMATICS", "SCIENCE", "COMPUTER", "GK", "DRAWING", "YOGA", "PHYSICAL TRAINING"],
+            "SECONDARY": ["ENGLISH", "MARATHI", "HINDI", "SS", "MATHEMATICS", "SCIENCE", "COMPUTER", "GK", "DRAWING", "YOGA", "PHYSICAL TRAINING"]
+        };
+
+        const gradeOptions = {
+            "PRE_PRIMARY": ["A+", "A", "B+", "B", "C+", "C", "D+", "D"],
+            "NORMAL": ["A1", "A2", "B1", "B2", "C1", "C2", "D1", "D2"]
+        };
+
+        const promotionMap = {
+            "NR": "JR", "JR": "SR", "SR": "1ST", "1": "2ND", "2": "3RD", "3": "4TH", "4": "5TH",
+            "5": "6TH", "6": "7TH", "7": "8TH", "8": "9TH", "9": "10TH", "10": "COMPLETED"
+        };
+
+        const gradeMap = { 
+            "A1": 8, "A2": 7, "B1": 6, "B2": 5, "C1": 4, "C2": 3, "D1": 2, "D2": 1,
+            "A+": 8, "A": 7, "B+": 6, "B": 5, "C+": 4, "C": 3, "D+": 2, "D": 1
+        };
+
+        const pointToGradeNormal = ["D2", "D2", "D1", "C2", "C1", "B2", "B1", "A2", "A1"];
+        const pointToGradePrePrimary = ["D", "D", "D+", "C", "C+", "B", "B+", "A", "A+"];
+
+        function formatClass(std){
+            const map = {
+                "1":"1ST",
+                "2":"2ND",
+                "3":"3RD",
+                "4":"4TH",
+                "5":"5TH",
+                "6":"6TH",
+                "7":"7TH",
+                "8":"8TH",
+                "9":"9TH",
+                "10":"10TH",
+                "NR":"NR",
+                "JR":"JR",
+                "SR":"SR"
+            };
+            return map[std] || std;
+        }
+
+        function isPrePrimary() {
+            const std = document.getElementById('in_std').value;
+            return ["NR", "JR", "SR"].includes(std);
+        }
+
+        function getActiveGradeList() {
+            return isPrePrimary() ? gradeOptions.PRE_PRIMARY : gradeOptions.NORMAL;
+        }
+
+        function getActiveSubjectList() {
+            const std = document.getElementById('in_std').value;
+            if (std === "NR" || std === "JR") return subjectLists.NR_JR;
+            if (std === "SR") return subjectLists.SR;
+            if (["1", "2", "3", "4", "5"].includes(std)) return subjectLists.PRIMARY;
+            return subjectLists.SECONDARY;
+        }
+
+        function handleStandardChange() {
+            updateSubjectInputs();
+            updateManualGradeSelect();
+            autoSave();
+        }
+
+        function updateManualGradeSelect() {
+            const select = document.getElementById('in_res_manual_grade');
+            if(!select) return;
+            select.innerHTML = '';
+            const list = getActiveGradeList();
+            list.forEach(g => {
+                const opt = document.createElement('option');
+                opt.value = g;
+                opt.textContent = g;
+                select.appendChild(opt);
+            });
+        }
+
+        function updateSubjectInputs() {
+            const container = document.getElementById('subject-inputs-list');
+            if(!container) return;
+            container.innerHTML = '';
+            const list = getActiveSubjectList();
+            const grades = getActiveGradeList();
+            
+            list.forEach(s => {
+                const row = document.createElement('div');
+                row.className = 'subject-row';
+                let gradeOpts = grades.map(g => `<option value="${g}">${g}</option>`).join('');
+                row.innerHTML = `
+                    <div style="font-size: 12px; font-weight: 600;">${s}</div>
+                    <select class="term1-val" onchange="autoSave()">${gradeOpts}</select>
+                    <select class="term2-val" onchange="autoSave()">${gradeOpts}</select>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function autoSave() {
+            const data = {
+                name: document.getElementById('in_name').value,
+                std: document.getElementById('in_std').value,
+                div: document.getElementById('in_div').value,
+                roll: document.getElementById('in_roll').value,
+                dob: document.getElementById('in_dob').value,
+                gender: document.getElementById('in_gender').value,
+                address: document.getElementById('in_address').value,
+                hobbies: document.getElementById('in_hobbies').value,
+                grades1: Array.from(document.querySelectorAll('.term1-val')).map(s => s.value),
+                grades2: Array.from(document.querySelectorAll('.term2-val')).map(s => s.value),
+                res_mode: document.getElementById('in_res_mode').value,
+                res_manual_grade: document.getElementById('in_res_manual_grade').value,
+                res_status: document.getElementById('in_res_status').value,
+                res_promote: document.getElementById('in_res_promote').value
+            };
+            localStorage.setItem('marksheet_v3_7_data', JSON.stringify(data));
+        }
+
+        function loadSavedData() {
+            const raw = localStorage.getItem('marksheet_v3_7_data');
+            if(!raw) {
+                handleStandardChange();
+                return;
+            }
+            const data = JSON.parse(raw);
+            document.getElementById('in_name').value = data.name || '';
+            document.getElementById('in_std').value = data.std || '9';
+            
+            handleStandardChange();
+            
+            document.getElementById('in_div').value = data.div || 'A';
+            document.getElementById('in_roll').value = data.roll || '';
+            document.getElementById('in_dob').value = data.dob || '';
+            document.getElementById('in_gender').value = data.gender || 'MALE';
+            document.getElementById('in_address').value = data.address || '';
+            document.getElementById('in_hobbies').value = data.hobbies || '';
+            
+            const t1 = document.querySelectorAll('.term1-val');
+            const t2 = document.querySelectorAll('.term2-val');
+            data.grades1?.forEach((v, i) => { if(t1[i]) t1[i].value = v; });
+            data.grades2?.forEach((v, i) => { if(t2[i]) t2[i].value = v; });
+
+            if(data.res_mode) document.getElementById('in_res_mode').value = data.res_mode;
+            if(data.res_manual_grade) document.getElementById('in_res_manual_grade').value = data.res_manual_grade;
+            if(data.res_status) document.getElementById('in_res_status').value = data.res_status;
+            if(data.res_promote) document.getElementById('in_res_promote').value = data.res_promote;
+        }
+
+        function generate() {
+            const raw = localStorage.getItem('marksheet_v3_7_data');
+            if(!raw) return alert("Please enter data first.");
+            const data = JSON.parse(raw);
+            if(!data.name) return alert("Please enter Student Name.");
+
+            document.getElementById('out_name').innerText = data.name.toUpperCase();
+            document.getElementById('out_std').innerText = formatClass(data.std);
+            document.getElementById('out_div').innerText = data.div.toUpperCase();
+            document.getElementById('out_roll').innerText = data.roll;
+            document.getElementById('out_gender').innerText = data.gender;
+            document.getElementById('out_address').innerText = data.address.toUpperCase();
+            document.getElementById('out_hobbies').innerText = data.hobbies.toUpperCase() || "-";
+
+            if(data.dob) {
+                const [y, m, d] = data.dob.split('-');
+                document.getElementById('out_dob').innerText = `${d}/${m}/${y}`;
+            }
+
+            const tbody = document.getElementById('out_subject_rows');
+            tbody.innerHTML = '';
+            let totalPoints = 0;
+            const currentList = getActiveSubjectList();
+
+            currentList.forEach((s, i) => {
+                const g1 = data.grades1[i] || (isPrePrimary() ? "A" : "A1");
+                const g2 = data.grades2[i] || (isPrePrimary() ? "A" : "A1");
+                totalPoints += (gradeMap[g1] + gradeMap[g2]);
+                tbody.innerHTML += `<tr><td class="text-left">${s}</td><td style="font-weight:bold;">${g1}</td><td style="font-weight:bold;">${g2}</td></tr>`;
+            });
+
+            let finalGrade;
+            if (data.res_mode === 'manual') {
+                finalGrade = data.res_manual_grade;
+            } else {
+                const avg = Math.round(totalPoints / (currentList.length * 2));
+                finalGrade = isPrePrimary() ? pointToGradePrePrimary[avg] : pointToGradeNormal[avg];
+            }
+            document.getElementById('out_grade_final').innerText = `GRADE: ${finalGrade}`;
+            
+            if (data.res_status === 'FAIL') {
+                document.getElementById('out_promotion').innerText = `RESULT : FAILED`;
+            } else {
+                let promotionClass = (data.res_mode === 'manual') ? formatClass(data.res_promote) : (promotionMap[data.std] || "-");
+                document.getElementById('out_promotion').innerText = `PASSED & PROMOTED TO : ${promotionClass}`;
+            }
+
+            document.getElementById('printable-marksheet').style.display = 'block';
+            window.scrollTo({ top: document.getElementById('printable-marksheet').offsetTop - 20, behavior: 'smooth' });
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById("printable-marksheet");
+            if(element.style.display === "none") {
+                alert("Please generate the preview first!");
+                return;
+            }
+            element.style.display = "block";
+            const studentName = document.getElementById("in_name").value.trim() || "Student";
+            const std = document.getElementById("in_std").value;
+            const fileName = studentName + " " + formatClass(std) + ".pdf";
+            const safeName = fileName.replace(/[\\/:*?"<>|]/g,'');
+
+            const opt = {
+                margin: 0,
+                filename: safeName,
+                image: { type: "jpeg", quality: 1 },
+                html2canvas: {
+                    scale: 4, dpi: 300, letterRendering: true, useCORS: true,
+                    allowTaint: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0
+                },
+                jsPDF: { unit: "mm", format: [297,210], orientation: "landscape", compress: false }
+            };
+            setTimeout(() => { html2pdf().set(opt).from(element).save(); }, 500);
+        }
+
+        function downloadExcel() {
+            const studentName = document.getElementById("in_name").value.trim() || "Student";
+            const stdVal = document.getElementById("in_std").value;
+            const classLabel = formatClass(stdVal);
+            const div = document.getElementById("in_div").value;
+            const roll = document.getElementById("in_roll").value;
+            const address = document.getElementById("in_address").value;
+            const dob = document.getElementById("in_dob").value;
+            const gender = document.getElementById("in_gender").value;
+            const hobbies = document.getElementById("in_hobbies").value || "-";
+
+            const fileName = (studentName + " " + classLabel + ".xlsx").replace(/[\\/:*?"<>|]/g,'');
+
+            // Header Section
+            const data = [
+                ["SITARAM EDUCATIONAL TRUST"],
+                ["AMBITION PUBLIC SCHOOL"],
+                ["BABA COMPOUND, VALAIPADA ROAD, SANTOSH BHUVAN, NSP(E)-401209"],
+                ["FINAL EXAMINATION REPORT CARD FOR ACADEMIC YEAR 2025-26"],
+                [],
+                ["STUDENT DETAILS", "", ""],
+                ["Student Name:", studentName.toUpperCase(), ""],
+                ["Class:", classLabel, "Division:", div, "Roll No:", roll],
+                ["DOB:", dob, "Gender:", gender, "", ""],
+                ["Address:", address.toUpperCase(), "", "", "", ""],
+                [],
+                ["ACADEMIC PERFORMANCE", "", ""],
+                ["Subject Name", "1ST TERM EXAM", "2ND TERM EXAM"]
+            ];
+
+            // Academic Table Data
+            const subjectList = getActiveSubjectList();
+            const g1List = Array.from(document.querySelectorAll('.term1-val')).map(s => s.value);
+            const g2List = Array.from(document.querySelectorAll('.term2-val')).map(s => s.value);
+            
+            let totalPoints = 0;
+            subjectList.forEach((s, i) => {
+                const g1 = g1List[i] || "-";
+                const g2 = g2List[i] || "-";
+                data.push([s, g1, g2]);
+                totalPoints += (gradeMap[g1] || 0) + (gradeMap[g2] || 0);
+            });
+
+            // Result Logic
+            let finalGrade;
+            const mode = document.getElementById('in_res_mode').value;
+            if (mode === 'manual') {
+                finalGrade = document.getElementById('in_res_manual_grade').value;
+            } else {
+                const avg = Math.round(totalPoints / (subjectList.length * 2));
+                finalGrade = isPrePrimary() ? pointToGradePrePrimary[avg] : pointToGradeNormal[avg];
+            }
+
+            const status = document.getElementById('in_res_status').value;
+            let promotionLine = "";
+            if (status === 'FAIL') {
+                promotionLine = "RESULT : FAILED";
+            } else {
+                promotionLine = "PASSED & PROMOTED TO : " + ((mode === 'manual') ? formatClass(document.getElementById('in_res_promote').value) : (promotionMap[stdVal] || "-"));
+            }
+
+            data.push([]);
+            data.push(["FINAL GRADE:", finalGrade]);
+            data.push([promotionLine]);
+            data.push([]);
+            data.push(["DESCRIPTIVE REMARKS"]);
+            
+            // Remarks logic
+            let remark = "";
+            if(['A1', 'A2', 'A', 'A+'].includes(finalGrade)) remark = "REMARKABLE PROGRESS";
+            else if(['B1', 'B2', 'B', 'B+'].includes(finalGrade)) remark = "GOOD";
+            else if(['C1', 'C2', 'C', 'C+'].includes(finalGrade)) remark = "IMPROVEMENT NEEDED";
+            else remark = "NEEDS SPECIAL ATTENTION";
+            
+            data.push([remark]);
+            data.push(["ENGLISH READING / WRITING"]);
+            data.push([]);
+            data.push(["INTEREST / HOBBIES"]);
+            data.push([hobbies.toUpperCase()]);
+            data.push([]);
+            data.push(["CLASS TEACHER'S SIGNATURE", "PARENT'S/GUARDIAN'S SIGNATURE", "H.M.'S SIGNATURE"]);
+
+            // Create Workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(data);
+
+            // Column Widths
+            ws['!cols'] = [
+                { wch: 30 }, // Subject Name
+                { wch: 20 }, // Term 1
+                { wch: 20 }, // Term 2
+                { wch: 15 },
+                { wch: 15 },
+                { wch: 15 }
+            ];
+
+            // Merge Header Rows
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
+                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
+                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, "Marksheet");
+            XLSX.writeFile(wb, fileName);
+        }
+
+        function resetAll() {
+            if(confirm("Clear all data and reset?")) {
+                localStorage.removeItem('marksheet_v3_7_data');
+                location.reload();
+            }
+        }
+
+        window.onload = loadSavedData;
+    </script>
+</body>
+</html>
