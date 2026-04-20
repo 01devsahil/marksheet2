@@ -8,8 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <!-- PDF Library -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <!-- SheetJS Library for Excel -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- ExcelJS & FileSaver for Styled Excel Exports -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
         :root {
             --admin-bg: #f0f2f5;
@@ -543,19 +544,9 @@
 
         function formatClass(std){
             const map = {
-                "1":"1ST",
-                "2":"2ND",
-                "3":"3RD",
-                "4":"4TH",
-                "5":"5TH",
-                "6":"6TH",
-                "7":"7TH",
-                "8":"8TH",
-                "9":"9TH",
-                "10":"10TH",
-                "NR":"NR",
-                "JR":"JR",
-                "SR":"SR"
+                "1":"1ST", "2":"2ND", "3":"3RD", "4":"4TH", "5":"5TH",
+                "6":"6TH", "7":"7TH", "8":"8TH", "9":"9TH", "10":"10TH",
+                "NR":"NR", "JR":"JR", "SR":"SR"
             };
             return map[std] || std;
         }
@@ -645,21 +636,17 @@
             const data = JSON.parse(raw);
             document.getElementById('in_name').value = data.name || '';
             document.getElementById('in_std').value = data.std || '9';
-            
             handleStandardChange();
-            
             document.getElementById('in_div').value = data.div || 'A';
             document.getElementById('in_roll').value = data.roll || '';
             document.getElementById('in_dob').value = data.dob || '';
             document.getElementById('in_gender').value = data.gender || 'MALE';
             document.getElementById('in_address').value = data.address || '';
             document.getElementById('in_hobbies').value = data.hobbies || '';
-            
             const t1 = document.querySelectorAll('.term1-val');
             const t2 = document.querySelectorAll('.term2-val');
             data.grades1?.forEach((v, i) => { if(t1[i]) t1[i].value = v; });
             data.grades2?.forEach((v, i) => { if(t2[i]) t2[i].value = v; });
-
             if(data.res_mode) document.getElementById('in_res_mode').value = data.res_mode;
             if(data.res_manual_grade) document.getElementById('in_res_manual_grade').value = data.res_manual_grade;
             if(data.res_status) document.getElementById('in_res_status').value = data.res_status;
@@ -719,144 +706,241 @@
 
         function downloadPDF() {
             const element = document.getElementById("printable-marksheet");
-            if(element.style.display === "none") {
-                alert("Please generate the preview first!");
-                return;
-            }
+            if(element.style.display === "none") { alert("Please generate the preview first!"); return; }
             element.style.display = "block";
             const studentName = document.getElementById("in_name").value.trim() || "Student";
             const std = document.getElementById("in_std").value;
-            const fileName = studentName + " " + formatClass(std) + ".pdf";
-            const safeName = fileName.replace(/[\\/:*?"<>|]/g,'');
-
+            const fileName = (studentName + " " + formatClass(std) + ".pdf").replace(/[\\/:*?"<>|]/g,'');
             const opt = {
-                margin: 0,
-                filename: safeName,
-                image: { type: "jpeg", quality: 1 },
-                html2canvas: {
-                    scale: 4, dpi: 300, letterRendering: true, useCORS: true,
-                    allowTaint: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0
-                },
+                margin: 0, filename: fileName, image: { type: "jpeg", quality: 1 },
+                html2canvas: { scale: 4, dpi: 300, letterRendering: true, useCORS: true, allowTaint: true, backgroundColor: "#ffffff", scrollX: 0, scrollY: 0 },
                 jsPDF: { unit: "mm", format: [297,210], orientation: "landscape", compress: false }
             };
             setTimeout(() => { html2pdf().set(opt).from(element).save(); }, 500);
         }
 
-        function downloadExcel() {
+        async function downloadExcel() {
             const studentName = document.getElementById("in_name").value.trim() || "Student";
             const stdVal = document.getElementById("in_std").value;
             const classLabel = formatClass(stdVal);
             const div = document.getElementById("in_div").value;
             const roll = document.getElementById("in_roll").value;
             const address = document.getElementById("in_address").value;
-            const dob = document.getElementById("in_dob").value;
+            const dobInput = document.getElementById("in_dob").value;
+            let dob = dobInput;
+            if(dobInput) { const [y,m,d] = dobInput.split('-'); dob = `${d}/${m}/${y}`; }
             const gender = document.getElementById("in_gender").value;
             const hobbies = document.getElementById("in_hobbies").value || "-";
 
             const fileName = (studentName + " " + classLabel + ".xlsx").replace(/[\\/:*?"<>|]/g,'');
 
-            // Header Section
-            const data = [
-                ["SITARAM EDUCATIONAL TRUST"],
-                ["AMBITION PUBLIC SCHOOL"],
-                ["BABA COMPOUND, VALAIPADA ROAD, SANTOSH BHUVAN, NSP(E)-401209"],
-                ["FINAL EXAMINATION REPORT CARD FOR ACADEMIC YEAR 2025-26"],
-                [],
-                ["STUDENT DETAILS", "", ""],
-                ["Student Name:", studentName.toUpperCase(), ""],
-                ["Class:", classLabel, "Division:", div, "Roll No:", roll],
-                ["DOB:", dob, "Gender:", gender, "", ""],
-                ["Address:", address.toUpperCase(), "", "", "", ""],
-                [],
-                ["ACADEMIC PERFORMANCE", "", ""],
-                ["Subject Name", "1ST TERM EXAM", "2ND TERM EXAM"]
-            ];
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Report Card');
 
-            // Academic Table Data
-            const subjectList = getActiveSubjectList();
-            const g1List = Array.from(document.querySelectorAll('.term1-val')).map(s => s.value);
-            const g2List = Array.from(document.querySelectorAll('.term2-val')).map(s => s.value);
-            
-            let totalPoints = 0;
-            subjectList.forEach((s, i) => {
-                const g1 = g1List[i] || "-";
-                const g2 = g2List[i] || "-";
-                data.push([s, g1, g2]);
-                totalPoints += (gradeMap[g1] || 0) + (gradeMap[g2] || 0);
-            });
-
-            // Result Logic
-            let finalGrade;
-            const mode = document.getElementById('in_res_mode').value;
-            if (mode === 'manual') {
-                finalGrade = document.getElementById('in_res_manual_grade').value;
-            } else {
-                const avg = Math.round(totalPoints / (subjectList.length * 2));
-                finalGrade = isPrePrimary() ? pointToGradePrePrimary[avg] : pointToGradeNormal[avg];
-            }
-
-            const status = document.getElementById('in_res_status').value;
-            let promotionLine = "";
-            if (status === 'FAIL') {
-                promotionLine = "RESULT : FAILED";
-            } else {
-                promotionLine = "PASSED & PROMOTED TO : " + ((mode === 'manual') ? formatClass(document.getElementById('in_res_promote').value) : (promotionMap[stdVal] || "-"));
-            }
-
-            data.push([]);
-            data.push(["FINAL GRADE:", finalGrade]);
-            data.push([promotionLine]);
-            data.push([]);
-            data.push(["DESCRIPTIVE REMARKS"]);
-            
-            // Remarks logic
-            let remark = "";
-            if(['A1', 'A2', 'A', 'A+'].includes(finalGrade)) remark = "REMARKABLE PROGRESS";
-            else if(['B1', 'B2', 'B', 'B+'].includes(finalGrade)) remark = "GOOD";
-            else if(['C1', 'C2', 'C', 'C+'].includes(finalGrade)) remark = "IMPROVEMENT NEEDED";
-            else remark = "NEEDS SPECIAL ATTENTION";
-            
-            data.push([remark]);
-            data.push(["ENGLISH READING / WRITING"]);
-            data.push([]);
-            data.push(["INTEREST / HOBBIES"]);
-            data.push([hobbies.toUpperCase()]);
-            data.push([]);
-            data.push(["CLASS TEACHER'S SIGNATURE", "PARENT'S/GUARDIAN'S SIGNATURE", "H.M.'S SIGNATURE"]);
-
-            // Create Workbook
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.aoa_to_sheet(data);
+            // Set default font to Times New Roman
+            worksheet.getStyle('A1').font = { name: 'Times New Roman' };
 
             // Column Widths
-            ws['!cols'] = [
-                { wch: 30 }, // Subject Name
-                { wch: 20 }, // Term 1
-                { wch: 20 }, // Term 2
-                { wch: 15 },
-                { wch: 15 },
-                { wch: 15 }
+            worksheet.columns = [
+                { width: 15 }, { width: 25 }, { width: 15 }, { width: 20 }, { width: 15 }, { width: 20 }, { width: 15 }, { width: 20 }, { width: 20 }
             ];
 
-            // Merge Header Rows
-            ws['!merges'] = [
-                { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
-                { s: { r: 1, c: 0 }, e: { r: 1, c: 5 } },
-                { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
-                { s: { r: 3, c: 0 }, e: { r: 3, c: 5 } }
-            ];
+            // --- HEADER ---
+            const h1 = worksheet.addRow(["SITARAM EDUCATIONAL TRUST"]);
+            worksheet.mergeCells(`A${h1.number}:I${h1.number}`);
+            h1.getCell(1).font = { name: 'Times New Roman', size: 14, bold: true };
+            h1.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
 
-            XLSX.utils.book_append_sheet(wb, ws, "Marksheet");
-            XLSX.writeFile(wb, fileName);
-        }
+            const h2 = worksheet.addRow(["AMBITION PUBLIC SCHOOL"]);
+            worksheet.mergeCells(`A${h2.number}:I${h2.number}`);
+            h2.getCell(1).font = { name: 'Times New Roman', size: 24, bold: true, color: { argb: 'FF800000' } };
+            h2.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
 
-        function resetAll() {
-            if(confirm("Clear all data and reset?")) {
-                localStorage.removeItem('marksheet_v3_7_data');
-                location.reload();
+            const h3 = worksheet.addRow(["BABA COMPOUND, VALAIPADA ROAD, SANTOSH BHUVAN, NSP(E)-401209"]);
+            worksheet.mergeCells(`A${h3.number}:I${h3.number}`);
+            h3.getCell(1).font = { name: 'Times New Roman', size: 10, bold: true };
+            h3.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+            const h4 = worksheet.addRow(["FINAL EXAMINATION REPORT CARD FOR ACADEMIC YEAR 2025-26"]);
+            worksheet.mergeCells(`A${h4.number}:I${h4.number}`);
+            h4.getCell(1).font = { name: 'Times New Roman', size: 11, bold: true, color: { argb: 'FF8B0000' } };
+            h4.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFCE7E7' } };
+            h4.getCell(1).border = { top: {style:'thin'}, bottom: {style:'thin'}, left: {style:'thin'}, right: {style:'thin'} };
+            h4.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
+
+            worksheet.addRow([]); // Spacer
+
+            // --- 3-COLUMN CONTENT START ---
+            const startRow = worksheet.lastRow.number + 1;
+
+            // Student Bio (Left)
+            worksheet.getCell(`A${startRow}`).value = "NAME OF STUDENT";
+            worksheet.getCell(`A${startRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
+            worksheet.mergeCells(`A${startRow}:C${startRow}`);
+            
+            const nameRow = startRow + 1;
+            worksheet.getCell(`A${nameRow}`).value = studentName.toUpperCase();
+            worksheet.getCell(`A${nameRow}`).font = { bold: true, size: 12 };
+            worksheet.mergeCells(`A${nameRow}:C${nameRow}`);
+
+            const detailsLabelRow = nameRow + 1;
+            worksheet.getCell(`A${detailsLabelRow}`).value = "STD.";
+            worksheet.getCell(`B${detailsLabelRow}`).value = "DIV";
+            worksheet.getCell(`C${detailsLabelRow}`).value = "ROLL NO.";
+            ['A','B','C'].forEach(c => worksheet.getCell(`${c}${detailsLabelRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} });
+
+            const detailsDataRow = detailsLabelRow + 1;
+            worksheet.getCell(`A${detailsDataRow}`).value = classLabel;
+            worksheet.getCell(`B${detailsDataRow}`).value = div;
+            worksheet.getCell(`C${detailsDataRow}`).value = roll;
+
+            const bioRow3 = detailsDataRow + 1;
+            worksheet.getCell(`A${bioRow3}`).value = "D.O.B";
+            worksheet.getCell(`B${bioRow3}`).value = "GENDER";
+            worksheet.mergeCells(`B${bioRow3}:C${bioRow3}`);
+            ['A','B','C'].forEach(c => worksheet.getCell(`${c}${bioRow3}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} });
+
+            const bioRow4 = bioRow3 + 1;
+            worksheet.getCell(`A${bioRow4}`).value = dob;
+            worksheet.getCell(`B${bioRow4}`).value = gender;
+            worksheet.mergeCells(`B${bioRow4}:C${bioRow4}`);
+
+            const addrHead = bioRow4 + 1;
+            worksheet.getCell(`A${addrHead}`).value = "ADDRESS";
+            worksheet.mergeCells(`A${addrHead}:C${addrHead}`);
+            worksheet.getCell(`A${addrHead}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
+
+            const addrRow = addrHead + 1;
+            worksheet.getCell(`A${addrRow}`).value = address.toUpperCase();
+            worksheet.mergeCells(`A${addrRow}:C${addrRow + 2}`);
+            worksheet.getCell(`A${addrRow}`).alignment = { wrapText: true, vertical: 'top' };
+
+            // Interpretation Table (Bottom Left)
+            const interpStart = addrRow + 4;
+            worksheet.getCell(`A${interpStart}`).value = "INTERPRETATION";
+            worksheet.mergeCells(`A${interpStart}:C${interpStart}`);
+            worksheet.getCell(`A${interpStart}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
+            worksheet.getCell(`A${interpStart + 1}`).value = "A1: 91-100% | A2: 81-90.99%";
+            worksheet.getCell(`A${interpStart + 2}`).value = "B1: 71-80.99% | B2: 61-70.99%";
+            worksheet.getCell(`A${interpStart + 3}`).value = "C1: 51-60.99% | C2: 41-50.99%";
+            worksheet.getCell(`A${interpStart + 4}`).value = "D1: 33-40.99% | D2: 21-32.99%";
+            for(let i=1; i<=4; i++) worksheet.mergeCells(`A${interpStart + i}:C${interpStart + i}`);
+
+            // Academic Table (Center)
+            worksheet.getCell(`D${startRow}`).value = "SUBJECT NAME";
+            worksheet.getCell(`E${startRow}`).value = "1ST TERM EXAM";
+            worksheet.getCell(`F${startRow}`).value = "2ND TERM EXAM";
+            ['D','E','F'].forEach(c => { 
+                worksheet.getCell(`${c}${startRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
+                worksheet.getCell(`${c}${startRow}`).font = { bold: true };
+            });
+
+            const subjectsList = getActiveSubjectList();
+            const g1List = Array.from(document.querySelectorAll('.term1-val')).map(s => s.value);
+            const g2List = Array.from(document.querySelectorAll('.term2-val')).map(s => s.value);
+            let totalPts = 0;
+            subjectsList.forEach((s, idx) => {
+                const r = startRow + 1 + idx;
+                worksheet.getCell(`D${r}`).value = s;
+                worksheet.getCell(`E${r}`).value = g1List[idx];
+                worksheet.getCell(`F${r}`).value = g2List[idx];
+                totalPts += (gradeMap[g1List[idx]] || 0) + (gradeMap[g2List[idx]] || 0);
+            });
+
+            const tableEndRow = startRow + subjectsList.length;
+            const resRow = tableEndRow + 1;
+            let finalGrade;
+            const mode = document.getElementById('in_res_mode').value;
+            if (mode === 'manual') finalGrade = document.getElementById('in_res_manual_grade').value;
+            else { const avg = Math.round(totalPts / (subjectsList.length * 2)); finalGrade = isPrePrimary() ? pointToGradePrePrimary[avg] : pointToGradeNormal[avg]; }
+            
+            const status = document.getElementById('in_res_status').value;
+            let promo = (status === 'FAIL') ? "RESULT : FAILED" : "PASSED & PROMOTED TO : " + ((mode === 'manual') ? formatClass(document.getElementById('in_res_promote').value) : (promotionMap[stdVal] || "-"));
+
+            worksheet.getCell(`D${resRow}`).value = "GRADE: " + finalGrade;
+            worksheet.getCell(`D${resRow}`).font = { bold: true, size: 13 };
+            worksheet.getCell(`E${resRow}`).value = promo;
+            worksheet.mergeCells(`E${resRow}:F${resRow}`);
+            worksheet.getCell(`E${resRow}`).font = { bold: true };
+
+            // Remarks Column (Right)
+            worksheet.getCell(`G${startRow}`).value = "DESCRIPTIVE REMARKS";
+            worksheet.mergeCells(`G${startRow}:I${startRow}`);
+            worksheet.getCell(`G${startRow}`).fill = { type:'pattern', pattern:'solid', fgColor:{argb:'FFF2F2F2'} };
+            
+            const remRow1 = startRow + 1;
+            worksheet.getCell(`G${remRow1}`).value = "REMARKABLE PROGRESS";
+            worksheet.mergeCells(`G${remRow1}:I${remRow1}`);
+            if(['A1','A2','A','A+'].includes(finalGrade)) worksheet.getCell(`G${remRow1}`).font = { color: {argb:'FF15803D'}, bold: true };
+
+            const remRow2 = remRow1 + 1;
+            worksheet.getCell(`G${remRow2}`).value = "GOOD";
+            worksheet.mergeCells(`G${remRow2}:I${remRow2}`);
+            if(['B1','B2','B','B+'].includes(finalGrade)) worksheet.getCell(`G${remRow2}`).font = { bold: true };
+
+            const remRow3 = remRow2 + 1;
+            worksheet.getCell(`G${remRow3}`).value = "IMPROVEMENT NEEDED";
+            worksheet.mergeCells(`G${remRow3}:I${remRow3}`);
+            if(['C1','C2','C','C+'].includes(finalGrade)) worksheet.getCell(`G${remRow3}`).font = { bold: true };
+
+            const engRow = remRow3 + 1;
+            worksheet.getCell(`G${engRow}`).value = "ENGLISH READING / WRITING";
+            worksheet.mergeCells(`G${engRow}:I${engRow + 2}`);
+            worksheet.getCell(`G${engRow}`).alignment = { horizontal:'center', vertical:'middle' };
+
+            const hobbyHead = engRow + 3;
+            worksheet.getCell(`G${hobbyHead}`).value = "INTEREST / HOBBIES";
+            worksheet.mergeCells(`G${hobbyHead}:I${hobbyHead}`);
+            worksheet.getCell(`G${hobbyHead}`).font = { color: {argb:'FF1D4ED8'}, bold: true };
+            worksheet.getCell(`G${hobbyHead}`).border = { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} };
+
+            const hobbyVal = hobbyHead + 1;
+            worksheet.getCell(`G${hobbyVal}`).value = hobbies.toUpperCase();
+            worksheet.mergeCells(`G${hobbyVal}:I${hobbyVal + 1}`);
+            worksheet.getCell(`G${hobbyVal}`).alignment = { horizontal:'center', vertical:'middle' };
+            worksheet.getCell(`G${hobbyVal}`).font = { bold: true };
+
+            // Apply Borders to Bio and Academic and Remarks
+            const maxR = Math.max(interpStart + 4, resRow, hobbyVal + 1);
+            for(let r = startRow; r <= maxR; r++) {
+                for(let c = 1; c <= 9; c++) {
+                    const cell = worksheet.getRow(r).getCell(c);
+                    cell.border = cell.border || {};
+                    Object.assign(cell.border, { top:{style:'thin'}, bottom:{style:'thin'}, left:{style:'thin'}, right:{style:'thin'} });
+                    cell.alignment = cell.alignment || { horizontal:'center', vertical:'middle' };
+                    cell.font = cell.font || { name: 'Times New Roman' };
+                }
             }
+
+            // --- FOOTER ---
+            const footRow = maxR + 2;
+            const rf = worksheet.addRow(["SCHOOL WILL RE-OPEN ON 5TH JUNE 2026"]);
+            worksheet.mergeCells(`A${rf.number}:I${rf.number}`);
+            rf.getCell(1).font = { name:'Times New Roman', bold:true, size:16, color:{argb:'FF8B4513'} };
+            rf.getCell(1).alignment = { horizontal:'center', vertical:'middle' };
+            rf.getCell(1).border = { top:{style:'thin'} };
+
+            const sigRow = rf.number + 1;
+            worksheet.addRow([]); // Signature spacer
+            const sigL = worksheet.addRow(["CLASS TEACHER'S SIGNATURE", "", "", "PARENT'S/GUARDIAN'S SIGNATURE", "", "", "H.M.'S SIGNATURE"]);
+            worksheet.mergeCells(`A${sigL.number}:C${sigL.number}`);
+            worksheet.mergeCells(`D${sigL.number}:F${sigL.number}`);
+            worksheet.mergeCells(`G${sigL.number}:I${sigL.number}`);
+            [1, 4, 7].forEach(c => {
+                sigL.getCell(c).font = { name:'Times New Roman', bold:true, size:11, color:{argb:'FF1E3A8A'} };
+                sigL.getCell(c).alignment = { horizontal:'center' };
+            });
+            worksheet.getRow(sigL.number - 1).height = 40; // Space for signatures
+
+            // Final Global Styling
+            worksheet.eachRow(row => { row.eachCell(cell => { if(!cell.font) cell.font = { name: 'Times New Roman' }; }); });
+
+            // Write to file
+            const buffer = await workbook.xlsx.writeBuffer();
+            saveAs(new Blob([buffer]), fileName);
         }
 
+        function resetAll() { if(confirm("Clear all data and reset?")) { localStorage.removeItem('marksheet_v3_7_data'); location.reload(); } }
         window.onload = loadSavedData;
     </script>
 </body>
